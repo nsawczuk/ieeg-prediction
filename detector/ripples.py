@@ -41,9 +41,7 @@ def remove_emptylevels(ind,C):
     return aux
 
 def ripples(tC, cdat, hdat, vdat):
-##if nargin == 4
-## plots = 0;
-##end
+
     Fs = 1000                  ##Sampling Frequency
     P = 2                   ##Group Population Limit
 
@@ -195,9 +193,7 @@ def ripples(tC, cdat, hdat, vdat):
                 time_pk.append(H[iPk])
                 freq_pk.append(V[iPk]) 
 
-            # REMOVE GROUPS WITH MEAN TIME > 30 ms MINIMUM TIME > 10 ms
-            # FROM 0.5 MARK OR IF MEAN FREQ ABOVE 200 OR IF GROUP
-            # CONTAINS <= P CONTOURS
+
                 if freq_wm[-1] > fHigh or len(cGrp[jj][0]) <= P:
                     cGrp.pop(jj)
             
@@ -282,11 +278,7 @@ def ripples(tC, cdat, hdat, vdat):
                 results[I][5]= np.max(perim[:,0]) - np.min(perim[:,0])               #% 6  tDuration  (Reflex 80)
                 
                 
-            
-#results =[det,avFreq,pkFreq,avMag,pkMag,tDur,tStart,tEnd]
- # REFLEX TESTING AT 200 HZ
-    #if len(olc)!=0:
-     #   results.append([0,0,0,0,0,0,0,0])
+
         
    
         
