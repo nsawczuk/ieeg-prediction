@@ -7,10 +7,7 @@ import scipy
     
     
 def find_inpolygon(cClean):
-    
-##ind_low = find(arrayfun(@(xx) 
-#inpolygon(cClean{end,1}(2,1), cClean{end,1}(2,2), cClean{xx,1}(2:end,1), 
-#cClean{xx,1}(2:end,2)), [1:length(cClean(1:end-1,1))]),1);
+
    
     indexs=[]
     for i in range(len(cClean)-1):
@@ -196,9 +193,6 @@ def bursts(cdat, hdat, vdat,tC):
                 time_pk.append(H[iPk])
                 freq_pk.append(V[iPk]) 
 
-            # REMOVE GROUPS WITH MEAN TIME > 30 ms MINIMUM TIME > 10 ms
-            # FROM 0.5 MARK OR IF MEAN FREQ ABOVE 200 OR IF GROUP
-            # CONTAINS <= P CONTOURS
                 if freq_wm[-1] > fHigh or len(cGrp[jj][0]) <= P:
                     cGrp.pop(jj)
             
@@ -242,7 +236,7 @@ def bursts(cdat, hdat, vdat,tC):
                     pkMag = pow_pk[cGrp[I][1]]
                     results.append([det,avFreq,pkFreq,avMag,pkMag,tDur,tStart,tEnd])
 
-#% REFLEX TESTING AT 80HZ LOWER LIMIT
+#% REFLEX TESTING AT LOWER LIMIT
     if len(results) != 0:
         
         for I in range(len(results)):
@@ -283,13 +277,7 @@ def bursts(cdat, hdat, vdat,tC):
                 results[I][5]= np.max(perim[:,0]) - np.min(perim[:,0])               #% 6  tDuration  (Reflex 80)
                 
                 
-            
-#results =[det,avFreq,pkFreq,avMag,pkMag,tDur,tStart,tEnd]
- # REFLEX TESTING AT 200 HZ
-    #if len(olc)!=0:
-     #   results.append([0,0,0,0,0,0,0,0])
-        
-   
+
         
     return results
 
