@@ -31,8 +31,7 @@ def get_timeSeries_trial(Data,k):
         y=y+gaussian(x,pkMag[i], tStart[i]+(tEnd[i]-tStart[i])/2, tDur[i])
     return y
 
-def get_timeSeries(Data):
-    electrodes= Data['Electrode name'].unique()
+def get_timeSeries(Data, electrodes):
     nTrials=len(Data['trial'].unique())
     if Data['tEnd'].max()<1.5:
 #Some subjects have 1.5 seconds trials
@@ -42,12 +41,19 @@ def get_timeSeries(Data):
         timeSeries= np.zeros((nTrials,3000,electrodes.shape[0]))
         k=3000
     for i in range(electrodes.shape[0]):
-        auxData=Data[Data['Electrode name']==electrodes[-i]]
+        auxData=Data[Data['Electrode name']==electrodes[i]]
+        power_sum=auxData.groupby('trial',as_index=False)['Recalled'].mean()
+        sums=auxData.groupby('trial',as_index=False)['pkMag'].sum()
+        power_sum['pkMag'] = power_sum['trial'].map(sums.set_index('trial')['pkMag'])
+        power_sum.fillna(0)
+
+        corr, _ = spearmanr(power_sum['pkMag'], power_sum['Recalled'])
+        sign=1
+        if corr <0:
+            sign=-1 
         for j in range(nTrials):
-            timeSeries[j,:,i]=get_timeSeries_trial(auxData[auxData['trial']==j],k)
+            timeSeries[j,:,i]= sign*get_timeSeries_trial(auxData[auxData['trial']==j],k)
     return timeSeries
-    
-    
 #LSTM model
 def make_model(input_shape,units):
     input_layer = keras.layers.Input(input_shape)
@@ -68,9 +74,10 @@ def make_model(input_shape,units):
 def gaussian_method(highgamma,beta,subject,units):
     highGamma= pd.read_csv(highgamma)
     beta= pd.read_csv(beta)
+    electrodes= highGamma['Electrode name'].unique()
     y=np.array(highGamma.groupby('trial')['Recalled'].mean())
-    timeSeriesB=get_timeSeries(beta)
-    timeSeriesHG= get_timeSeries(highGamma)
+    timeSeriesB=get_timeSeries(beta,electrodes)
+    timeSeriesHG= get_timeSeries(highGamma, electrodes)
     X= np.concatenate([timeSeriesHG,timeSeriesB],axis=2)
     acc_per_fold = []
     auc_per_fold = []
