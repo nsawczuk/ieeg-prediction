@@ -11,6 +11,7 @@ from sklearn import metrics
 from sklearn.metrics import RocCurveDisplay
 from sklearn.utils import class_weight
 from sklearn.model_selection import StratifiedKFold
+from scipy.stats import spearmanr
 
 from sklearn import preprocessing
 
