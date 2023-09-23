@@ -32,7 +32,7 @@ def get_timeSeries_trial(Data,k):
         y=y+gaussian(x,pkMag[i], tStart[i]+(tEnd[i]-tStart[i])/2, tDur[i])
     return y
 
-def get_timeSeries(Data, electrodes):
+def get_timeSeries(Data, electrodes, signs):
     nTrials=len(Data['trial'].unique())
     if Data['tEnd'].max()<1.5:
 #Some subjects have 1.5 seconds trials
@@ -43,17 +43,8 @@ def get_timeSeries(Data, electrodes):
         k=3000
     for i in range(electrodes.shape[0]):
         auxData=Data[Data['Electrode name']==electrodes[i]]
-        power_sum=auxData.groupby('trial',as_index=False)['Recalled'].mean()
-        sums=auxData.groupby('trial',as_index=False)['pkMag'].sum()
-        power_sum['pkMag'] = power_sum['trial'].map(sums.set_index('trial')['pkMag'])
-        power_sum.fillna(0)
-
-        corr, _ = spearmanr(power_sum['pkMag'], power_sum['Recalled'])
-        sign=1
-        if corr <0:
-            sign=-1 
         for j in range(nTrials):
-            timeSeries[j,:,i]= sign*get_timeSeries_trial(auxData[auxData['trial']==j],k)
+            timeSeries[j,:,i]= signs[i]*get_timeSeries_trial(auxData[auxData['trial']==j],k)
     return timeSeries
 #LSTM model
 def make_model(input_shape,units):
@@ -72,14 +63,29 @@ def make_model(input_shape,units):
 
     return keras.models.Model(inputs=input_layer, outputs=output_layer)
 
+def get_electrode_signs(Data, electrodes):
+    
+    signs=[]
+    for i in range(electrodes.shape[0]):
+        auxData=Data[Data['Electrode name']==electrodes[i]]
+        power_sum=auxData.groupby('trial',as_index=False)['Recalled'].mean()
+        sums=auxData.groupby('trial',as_index=False)['pkMag'].sum()
+        power_sum['pkMag'] = power_sum['trial'].map(sums.set_index('trial')['pkMag'])
+        power_sum.fillna(0)
+
+        corr, _ = spearmanr(power_sum['pkMag'], power_sum['Recalled'])
+        sign=1
+        if corr<0:
+            sign=-1
+        signs.append(sign)
+    return signs
+
 def gaussian_method(highgamma,beta,subject,units):
     highGamma= pd.read_csv(highgamma)
     beta= pd.read_csv(beta)
     electrodes= highGamma['Electrode name'].unique()
     y=np.array(highGamma.groupby('trial')['Recalled'].mean())
-    timeSeriesB=get_timeSeries(beta,electrodes)
-    timeSeriesHG= get_timeSeries(highGamma, electrodes)
-    X= np.concatenate([timeSeriesHG,timeSeriesB],axis=2)
+ 
     acc_per_fold = []
     auc_per_fold = []
     loss_per_fold = []
@@ -87,23 +93,25 @@ def gaussian_method(highgamma,beta,subject,units):
     kfold = StratifiedKFold(n_splits=4, shuffle=True)
 
     fold_no = 1
-    for train, test in kfold.split(X, y):
-
-        model = make_model((X.shape[1],X.shape[2]),units)
+    for train, test in kfold.split(y,y):
         epochs = 100
         batch_size = 128
         optimizer = keras.optimizers.Adam(learning_rate=0.01)
         callbacks = [keras.callbacks.ReduceLROnPlateau(
                 monitor="val_loss", factor=0.5, patience=15, min_lr=0.0001    ),
             keras.callbacks.EarlyStopping(monitor="val_loss", patience=15, verbose=1),]
-        model.compile(  optimizer=optimizer,
-            loss= "binary_crossentropy",
-                metrics=[
-                keras.metrics.BinaryAccuracy(),
-                keras.metrics.AUC(),
-                keras.metrics.Precision(),
-                keras.metrics.Recall(),
-            ],)
+ 
+        
+        beta_aux= beta[np.isin(beta['trial'],y[train])]
+        beta_signs= get_electrode_signs(beta_aux, electrodes)
+        
+        
+        highGamma_aux= beta[np.isin(beta['trial'],y[train])]
+        highGamma_signs= get_electrode_signs(highGamma_aux, electrodes)
+        
+        timeSeriesB=get_timeSeries(beta,electrodes, beta_signs)
+        timeSeriesHG= get_timeSeries(highGamma, electrodes, highGamma_signs)
+        X= np.concatenate([timeSeriesHG,timeSeriesB],axis=2)    
 
         X_train= X[train]
         X_test= X[test]
@@ -115,6 +123,15 @@ def gaussian_method(highgamma,beta,subject,units):
         X_train = scaler.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
         X_test = scaler.transform(X_test.reshape(-1, X_test.shape[-1])).reshape(X_test.shape)
         X_val = scaler.transform(X_val.reshape(-1, X_val.shape[-1])).reshape(X_val.shape)
+        model = make_model((X.shape[1],X.shape[2]),units)
+        model.compile(  optimizer=optimizer,
+            loss= "binary_crossentropy",
+                metrics=[
+                keras.metrics.BinaryAccuracy(),
+                keras.metrics.AUC(),
+                keras.metrics.Precision(),
+                keras.metrics.Recall(),
+            ],)
 
 
         class_weights = class_weight.compute_class_weight(
